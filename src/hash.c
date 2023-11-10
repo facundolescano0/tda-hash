@@ -39,23 +39,25 @@ hash_t *hash_crear(size_t capacidad)
 	
 }
 
-hash_t *rehashear(hash_t *hash){
-	hash_t *hash_nuevo = hash_crear(hash->capacidad * 2);
+void rehashear(hash_t *hash_chico){
+	hash_t *hash_nuevo = hash_crear(hash_chico->capacidad * 2);
 	if(!hash_nuevo){
-		hash_destruir(hash);
-		return NULL;
+		hash_destruir(hash_chico);
+		return;
 	}
 		
-	for(int i=0; i<hash->capacidad; i++){
-		struct par *actual = hash->tabla[i];
+	for(int i=0; i<hash_chico->capacidad; i++){
+		struct par *actual = hash_chico->tabla[i];
 		while(actual){
-			hash_insertar(hash, actual->clave, actual->valor,
-		      NULL);
+			void *anterior;
+			hash_insertar(hash_nuevo, actual->clave, actual->valor,
+		      &anterior);
 			actual = actual->siguiente;
 		}
 	}
-	free(hash);
-	return hash_nuevo;
+	free(hash_chico->tabla);
+	
+	
 }
 
 int funcion_hash(const char *clave)
@@ -72,17 +74,18 @@ hash_t *hash_insertar(hash_t *hash, const char *clave, void *elemento,
 {
 	if (!hash || !clave)
 		return NULL;
-	*anterior = NULL;
+	
 	float factor_carga = (float)hash->cantidad / (float)hash->capacidad ;
 	if(factor_carga > FACTOR_CARGA_MAXIMO){
-		hash = rehashear(hash);
+		rehashear(hash);
 	}
 
-	int posicion = funcion_hash(clave)% (int)hash->capacidad;
+	int posicion = funcion_hash(clave) % (int)hash->capacidad;
 	struct par *actual = hash->tabla[posicion];
 	while(actual){
 		if(actual->clave == clave){
-			*anterior = actual->valor;
+			if(anterior)
+				*anterior = actual->valor;
 			actual->valor = elemento;
 			return hash;
 		}
@@ -90,11 +93,15 @@ hash_t *hash_insertar(hash_t *hash, const char *clave, void *elemento,
 	}
 
 	struct par *nuevo_par = malloc(sizeof(struct par));
+	if(!nuevo_par)
+		return NULL;
 	nuevo_par->clave = clave;
 	nuevo_par->valor = elemento;
 	nuevo_par->siguiente = hash->tabla[posicion];
 	hash->tabla[posicion] = nuevo_par;
 	hash->cantidad++;
+	if(anterior)
+		*anterior = NULL;
 	return hash;
 }
 
@@ -102,25 +109,34 @@ struct par *buscar_par_anterior(struct par *actual, const char *clave)
 {
 	if(!actual)
 		return NULL;
+
+	if(actual->siguiente){
+		if(actual->siguiente->clave == clave)
+			return actual;
+	}
 	
-	if(actual->siguiente->clave == clave)
-		return actual;
 
 	return buscar_par_anterior(actual->siguiente, clave);
 }
 
 void *hash_quitar(hash_t *hash, const char *clave)
 {
-	if (!hash )
+	if (!hash || !clave)
 		return NULL;
 
 	int posicion = funcion_hash(clave) % (int)hash->capacidad;
 	struct par *actual = hash->tabla[posicion];
-	struct par *par_anterior = buscar_par_anterior(actual, clave);
+	if(actual && actual->clave == clave){
+		void *elemento_eliminado = actual->valor;
+		hash->tabla[posicion] = hash->tabla[posicion]->siguiente;
+		free(actual);
+		hash->cantidad--;
+		return elemento_eliminado;
+	}
 	
+	struct par *par_anterior = buscar_par_anterior(actual, clave);
 	if(!par_anterior)
 		return NULL;
-	
 	struct par *par_auxiliar = par_anterior->siguiente;
 	void *elemento_eliminado = par_auxiliar->valor;
 	par_anterior->siguiente =  par_auxiliar->siguiente;
@@ -133,7 +149,7 @@ void *hash_quitar(hash_t *hash, const char *clave)
 
 void *hash_obtener(hash_t *hash, const char *clave)
 {
-	if (!hash)
+	if (!hash || !clave)
 		return NULL;
 
 	int posicion = funcion_hash(clave) % (int)hash->capacidad;
@@ -149,9 +165,10 @@ void *hash_obtener(hash_t *hash, const char *clave)
 
 bool hash_contiene(hash_t *hash, const char *clave)
 {
-	if (!hash || !hash_obtener(hash, clave))
+	if (!hash || !clave)
 		return false;
-
+	if(!hash_obtener(hash, clave))
+		return false;
 	return true;
 }
 
@@ -201,9 +218,17 @@ size_t hash_con_cada_clave(hash_t *hash,
 			   bool (*f)(const char *clave, void *valor, void *aux),
 			   void *aux)
 {
-	size_t n = 0;
+	size_t iterados = 0;
 	if (!hash || !f)
-		return n;
-
-	return n;
+		return iterados;
+	bool seguir = true;
+	for(int i=0;i<hash->capacidad && seguir;i++){
+		struct par *actual = hash->tabla[i];
+		while(actual && seguir){
+			seguir = f(actual->clave, actual->valor, aux);
+			actual = actual->siguiente;
+			iterados++;
+		}
+	}
+	return iterados;
 }
