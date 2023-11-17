@@ -37,14 +37,26 @@ valgrind ./pruebas_alumno
 ##  Funcionamiento
 
 Este TDA es una implementacion de un hash abierto con direccionamiento cerrrado la cual utiliza dos estructuras para su implementacion. La primer estructura es de pares, que contiene clave, valor y siguiente par; y la estructura hash que contiene la capacidad de la tabla, la cantidad de pares y la tabla.
-Esta es una abstraccion de como se encontrara un hash creado en memoria.
+Para esta implementacion se requiere reservar memoria en el heap para la estructura hash, para los punteros a a cada posicion de la tabla, para cada par que se va a insertar y para las claves de los pares a a insertar.
+Esta es una abstraccion de como se encontrara un hash creado en memoria(de capacidad minima).
 
 <div align="center">
 <img width="70%" src="diagramas/memoria-hash.png">
 </div>
 
-Se definieron las operaciones crear, insertar, quitar, obtener, contiene, cantidad, destruir, destruir_todo y con cada clave; orientadas segun el contrato establecido en hash.h.
-Para esta implementacion se requiere reservar memoria en el heap para la estructura hash, para los punteros a a cada posicion de la tabla, para cada par que se va a insertar y para las claves de los pares a a insertar.
+Se definieron las operaciones crear, insertar, quitar, obtener, contiene, cantidad, destruir, destruir_todo y con cada clave; orientadas segun el contrato establecido en hash.h. 
+Logicas de las operaciones insertar y quitar:
+Para insertar, primero se chequea la capacidad ocupada para determinar si hay que aumentar la capacidad del hash(rehashear). Luego hay tres posibles casos, segun la posicion asociada de la clave a insertar:
+-No haya ningun elemento en esa posicion del hash.
+-Haya elementos pero ninguno con la misma clave a insetar.
+-haya elementos y alguno de ellos tenga la misma clave a insertar.
+En el primer caso, directamente se insertara en la nuevo par en la posicion. En el segundo caso, se recorrera cada par en esa posicion hasta encontrar el siguiente par sin ocupar e insetarlo alli. En el ultimo caso, unicamente se actualizara el valor de la clave ya usada.
+
+Para quitar, tambien habra tres posibles casos segun la posicion asociada de la clave a eliminar.
+El primer caso seria que en el hash no se encuentre ningun elemento en la posicion asociada a la clave, es decir, la clave del par a eliminar no esta en el hash.
+El segundo caso seria que el par a eliminar se encuentre en la cabecera de la posicion. Su siguiente pasaria a ser la cabecera y se quitaria tal.
+El tercer caso es cuando el par no se encuentre en la cabecera de la posicion. En este caso, se buscara el par anterior del requerido, se "enganchara" el sucesor del par a eliminar al anterior y se eliminara el par solicitado (si es que existe el par a quitar).
+
 
 -Complejidades computacionales:
 
